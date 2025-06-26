@@ -78,6 +78,8 @@
       from { opacity: 0; transform: translateY(-10px); }
       to { opacity: 1; transform: translateY(0); }
     }
+
+    
   </style>
 </head>
 <body>
@@ -111,7 +113,7 @@
     
 
 
-       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"} [옵션들]\n- title num {숫자} [옵션들]\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:n} [nothankyou:"True"]`;
+       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}`;
 
       let match, text = '', timeout = 3, color = 'skyblue', isBold = false, isItalic = false;
       const lowerCmd = cmd.toLowerCase();
@@ -147,8 +149,82 @@
 
 
       if (lowerCmd === 'help') {
-        block.innerText += `\n${helpText}`;
-        return;
+  block.innerText += `\n${helpText}`;
+  return;
+} else if (lowerCmd === 'help [more]' || lowerCmd === 'help[more]') {
+  const detailedHelp = `
+사용 가능한 명령어 및 부속 옵션 상세 가이드:
+
+1. title string {"텍스트"} [timeout:n] [color:"색상"] [bold:"True"] [italic:"True"]
+   - 화면 중앙에 텍스트를 표시
+   - timeout: 몇 초 후 사라질지 (기본 3초)
+   - color: 텍스트 색상
+   - bold: 진하게 표시
+   - italic: 이탤릭체 적용
+
+2. title num {숫자} [timeout:n] [color:"색상"] [bold:"True"] [italic:"True"]
+   - 숫자를 텍스트처럼 표시
+
+3. title clear all
+   - 모든 타이틀 삭제
+
+4. title clear recent
+   - 가장 최근 타이틀 하나 삭제
+
+5. cls all
+   - 모든 로그창(clear)
+
+6. cls recent
+   - 가장 최근 로그 한 줄 삭제
+
+7. alert string {"텍스트"}
+   - 화면 우측 상단에 알림 표시 (3초 후 사라짐)
+
+8. alert num {숫자}
+   - 숫자 알림 표시
+
+9. style [page:"wavy"/"tornado"/"dragon"] [bgcolor:"색상"] [textcolor:"색상"]
+   - 페이지 스타일 변경
+   - wavy: 중간에 물결 애니메이션, 위는 바다색, 아래는 모래색 배경
+   - tornado, dragon: 추후 구현 예정
+   - bgcolor, textcolor: 배경색, 텍스트 색상 지정 (독립적)
+
+10. style [na]
+    - 스타일 초기화, 기본 배경과 글자색으로 복원
+
+11. record myself
+    - 내 카메라 화면 녹화 준비
+
+12. record otherpage
+    - 화면 공유 녹화 준비
+
+13. record showbutton [buttonsize:"large"/"medium"/"small"]
+    - 녹화 시작/중지 버튼 표시, 크기 선택 가능 (기본 medium)
+
+14. record save [file:mp4/webm/mp3]
+    - 녹화한 데이터 저장, 파일 형식 선택 (기본 webm)
+
+15. record clear
+    - 녹화 데이터 및 리소스 초기화
+
+16. thankyou {timeout:n} [nothankyou:"True"]
+    - "Thank You!" 메시지 출력하며 입력 잠시 숨김
+    - nothankyou 옵션으로 메시지 숨김 가능
+
+17. help
+    - 기본 도움말 출력
+
+18. help [more]
+    - 모든 명령어 및 옵션 상세 가이드 출력
+
+---
+
+(Made by 범서) all rights reserved!
+`;
+  block.innerText += detailedHelp;
+  return;
+
+
         
       } else if (lowerCmd === 'title clear all') {
         document.querySelectorAll('.title-box').forEach(el => el.remove());
@@ -174,7 +250,70 @@
           block.innerText += `\n⚠ 오류: 삭제할 로그가 없습니다.`;
         }
         return;
-        
+        } else if (lowerCmd.startsWith('style')) {
+            const naMatch = cmd.match(/\[na\]/i);
+  const pageMatch = cmd.match(/\[page\s*:\s*"(.+?)"\s*\]/i);
+  const bgMatch = cmd.match(/\[bgcolor\s*:\s*"(.+?)"\s*\]/i);
+  const textMatch = cmd.match(/\[textcolor\s*:\s*"(.+?)"\s*\]/i);
+
+  const page = pageMatch ? pageMatch[1].toLowerCase() : null;
+  const bgcolor = bgMatch ? bgMatch[1] : null;
+  const textcolor = textMatch ? textMatch[1] : null;
+
+if (naMatch) {
+    // 스타일 초기화
+    document.body.style.removeProperty('background');
+    document.body.style.removeProperty('background-color');
+    document.body.style.removeProperty('color');
+
+    // 기존 기본 스타일로 되돌리기 (필요 시 직접 명시 가능)
+    document.body.style.background = '#1e1e1e';
+    document.body.style.color = '#d4d4d4';
+
+    // wavy 스타일용 wave div 제거
+    const waveDiv = document.querySelector('div[data-wave="true"]');
+    if (waveDiv) waveDiv.remove();
+
+    // wave-style <style> 태그 제거
+    const waveStyleTag = document.getElementById('wave-style');
+    if (waveStyleTag) waveStyleTag.remove();
+
+    block.innerText += '\n스타일이 초기화되어 기본 상태로 복구되었습니다.';
+    return;
+  }
+
+  if (!page && !bgcolor && !textcolor) {
+    block.innerText += `\n명령어가 잘 실행되었습니다.`;
+    return;
+  }
+
+if (bgcolor) document.body.style.setProperty('background-color', bgcolor, 'important');
+if (textcolor) document.body.style.setProperty('color', textcolor, 'important');
+
+ if (page === 'wavy') {
+  document.body.style.setProperty('background', `linear-gradient(to bottom, #2196f3 0%, #2196f3 50%, #fdd835 50%, #fdd835 100%)`, 'important');
+    const wave = document.createElement('div');
+    wave.style.position = 'fixed';
+    wave.style.top = '50%';
+    wave.style.left = '0';
+    wave.style.width = '100%';
+    wave.style.height = '20px';
+    wave.style.background = '#81d4fa';
+    wave.style.boxShadow = '0 0 20px #03a9f4';
+    wave.style.animation = 'waveMove 2s infinite ease-in-out';
+    wave.style.zIndex = '-1';
+    document.body.appendChild(wave);
+    injectWaveStyle();
+    block.innerText += `\n🌊 wavy 스타일이 적용되었습니다.`;
+  } else if (page === 'tornado') {
+    block.innerText += `\n🌪 tornado 스타일은 아직 구현되지 않았습니다.`; // placeholder
+  } else if (page === 'dragon') {
+    block.innerText += `\n🐉 dragon 스타일은 아직 구현되지 않았습니다.`; // placeholder
+  } else if (page) {
+    block.innerText += `\n⚠ 오류: 알 수 없는 page 스타일입니다.`;
+  }
+  return;
+
       } else if (lowerCmd === 'record myself') {
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
           .then(stream => {
@@ -323,6 +462,20 @@
         recordBtn.textContent = '녹화 중지';
       }
     });
+
+    function injectWaveStyle() {
+  if (document.getElementById('wave-style')) return;
+  const style = document.createElement('style');
+  style.id = 'wave-style';
+  style.innerHTML = `
+    @keyframes waveMove {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0); }
+    }
+  `;
+  document.head.appendChild(style);
+}
   </script>
 </body>
 </html>
