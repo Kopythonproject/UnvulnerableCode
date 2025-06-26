@@ -113,7 +113,7 @@
     
 
 
-       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}`;
+       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}\n- showtime`;
 
       let match, text = '', timeout = 3, color = 'skyblue', isBold = false, isItalic = false;
       const lowerCmd = cmd.toLowerCase();
@@ -216,6 +216,11 @@
 
 18. help [more]
     - 모든 명령어 및 옵션 상세 가이드 출력
+
+19. showtime [ifcountry:"국가코드"] [notshow:"seconds/country"]
+    - 지금 현재 기기가 나타내는 시간을 알려줌
+    - ifcountry 해당 국가 한정으로 시간옆 국가를 지정함
+    - notshow seconds, notshow country 초단위 또는 소속국가를 숨김
 
 ---
 
@@ -379,6 +384,7 @@ if (textcolor) document.body.style.setProperty('color', textcolor, 'important');
   return;
 }
 
+
        else if (lowerCmd === 'record clear') {
         recordedChunks = [];
         streamRef?.getTracks().forEach(track => track.stop());
@@ -388,6 +394,37 @@ if (textcolor) document.body.style.setProperty('color', textcolor, 'important');
         block.innerText += `\n녹화 관련 리소스 초기화 완료.`;
         return;
       }
+       else if (lowerCmd.startsWith('showtime')) {
+  const ifCountryMatch = cmd.match(/\[ifcountry\s*:\s*"(.+?)"\s*\]/i);
+  const notShowMatch = cmd.match(/\[notshow\s*:\s*"(.+?)"\s*\]/i);
+
+  const allowedCountries = ifCountryMatch ? ifCountryMatch[1].split('/').map(c => c.trim().toLowerCase()) : null;
+  const hiddenParts = notShowMatch ? notShowMatch[1].split('/').map(p => p.trim().toLowerCase()) : [];
+
+  // 국가 감지는 navigator.language 기반 (정확도 한계 있지만 일반적 대안)
+  const userLang = navigator.language || '';
+  const userCountryGuess = userLang.split('-')[1]?.toLowerCase() || '';
+
+  if (allowedCountries && !allowedCountries.includes(userCountryGuess)) {
+    block.innerText += `\n⚠ 이 명령어는 해당 국가에서만 실행됩니다. (${allowedCountries.join(', ')})`;
+    return;
+  }
+
+  const now = new Date();
+  let timeStr = now.toLocaleTimeString(); // ex: 17:10:43
+  let countryStr = userCountryGuess.toUpperCase() || 'UNKNOWN';
+
+  // 제거 처리
+  if (hiddenParts.includes('seconds')) {
+    timeStr = timeStr.replace(/:\d{2}$/, ''); // 마지막 :ss 제거
+  }
+  if (hiddenParts.includes('country')) {
+    countryStr = '';
+  }
+
+  block.innerText += `\n🕒 현재 시각: ${timeStr}${countryStr ? ` (${countryStr})` : ''}`;
+  return;
+}
 
       if ((match = cmd.match(stringPattern))) {
         text = match[1];
@@ -409,7 +446,8 @@ if (textcolor) document.body.style.setProperty('color', textcolor, 'important');
       } else {
         block.innerText += `\n⚠ 오류: 알 수 없는 명령어입니다. (help 입력)`;
         return;
-      }
+      } 
+      
 
 
       block.innerText += `\n타이틀 표시: ${text}`;
