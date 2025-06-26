@@ -110,10 +110,12 @@
       const alertStrPattern = /^alert\s+string\s*\{\s*\"(.*?)\"\s*\}$/i;
       const alertNumPattern = /^alert\s+num\s*\{\s*(\d+)\s*\}$/i;
       const thankyouPattern = /^thankyou\s*\{\s*timeout\s*:\s*(\d+)\s*\}(.*)$/i;
+      const foodPattern = /^food\s*\{\s*bite\s*:\s*(\d+)\s*\}$/i;
+
     
 
 
-       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}\n- showtime`;
+       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}\n- showtime\n-food {bite:숫자} : 지정한 횟수만큼 버튼을 눌러야 입력창이 다시 나타납니다`;
 
       let match, text = '', timeout = 3, color = 'skyblue', isBold = false, isItalic = false;
       const lowerCmd = cmd.toLowerCase();
@@ -221,6 +223,9 @@
     - 지금 현재 기기가 나타내는 시간을 알려줌
     - ifcountry 해당 국가 한정으로 시간옆 국가를 지정함
     - notshow seconds, notshow country 초단위 또는 소속국가를 숨김
+ 
+20. food {bite:숫자}
+    -일정 횟수의 클릭을 요구합니다
 
 ---
 
@@ -424,7 +429,49 @@ if (textcolor) document.body.style.setProperty('color', textcolor, 'important');
 
   block.innerText += `\n🕒 현재 시각: ${timeStr}${countryStr ? ` (${countryStr})` : ''}`;
   return;
+} else if ((match = cmd.match(foodPattern))) {
+  const totalBites = parseInt(match[1]);
+  if (isNaN(totalBites) || totalBites <= 0) {
+    block.innerText += `\n⚠ 오류: bite 값은 양의 정수여야 합니다.`;
+    return;
+  }
+
+  let bitesLeft = totalBites;
+  const inputBox = document.getElementById('input');
+  inputBox.style.display = 'none';
+
+  const button = document.createElement('button');
+  button.textContent = `클릭 (${bitesLeft}번 남음)`;
+  button.style.position = 'fixed';
+  button.style.top = '50%';
+  button.style.left = '50%';
+  button.style.transform = 'translate(-50%, -50%)';
+  button.style.padding = '14px 28px';
+  button.style.fontSize = '20px';
+  button.style.background = '#ff7043';
+  button.style.color = 'white';
+  button.style.border = 'none';
+  button.style.borderRadius = '10px';
+  button.style.cursor = 'pointer';
+  button.style.zIndex = '9999';
+
+  document.body.appendChild(button);
+
+  button.addEventListener('click', () => {
+    bitesLeft--;
+    if (bitesLeft > 0) {
+      button.textContent = `클릭 (${bitesLeft}번 남음)`;
+    } else {
+      button.remove();
+      inputBox.style.display = 'block';
+      block.innerText += `\n횟수를 모두 채웠습니다. 다시 명령어를 입력할 수 있습니다.`;
+    }
+  });
+
+  block.innerText += `\n버튼이 나타났습니다. ${totalBites}번 클릭하십시오`;
+  return;
 }
+
 
       if ((match = cmd.match(stringPattern))) {
         text = match[1];
