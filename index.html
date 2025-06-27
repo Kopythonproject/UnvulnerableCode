@@ -83,7 +83,7 @@
   </style>
 </head>
 <body>
-<h1>Unvulnerable 코딩언어 (Made by 범서) Ver 0.1 A</h1>
+<h1>Unvulnerable 코딩언어 (Made by 범서) Ver 1.47 B</h1>
   <div id="output">명령어를 입력하세요. (help 입력)</div>
   <input id="input" autofocus autocomplete="off" placeholder="> 명령어 입력">
   <button id="recordBtn">녹화 시작</button>
@@ -115,8 +115,7 @@
     
 
 
-       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}\n- showtime\n-food {bite:숫자} : 지정한 횟수만큼 버튼을 눌러야 입력창이 다시 나타납니다`;
-
+       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}\n- showtime\n- food {bite:숫자}\n- getrandom {material:"도구"}\n- unvulnerable\n- gourl {media:"사이트"}\n- unvulnotepad\n- crawl {"검색어"} `;
       let match, text = '', timeout = 3, color = 'skyblue', isBold = false, isItalic = false;
       const lowerCmd = cmd.toLowerCase();
 
@@ -225,7 +224,30 @@
     - notshow seconds, notshow country 초단위 또는 소속국가를 숨김
  
 20. food {bite:숫자}
-    -일정 횟수의 클릭을 요구합니다
+    - 일정 횟수의 클릭을 요구합니다
+
+21. getrandom {material:"coin/dice"} [diceface:숫자] [coinmessageface:"메시지"] [coinmessagetail:"메시지"] 
+    - 주사위나 동전을 이용하여 무작위성을 확인시킵니다
+    - diceface 주사위의 면수를 정합니다 (1면 이상)
+    - coinmessageface, coinmessagetail 동전의 앞면과 뒷면의 이름을 정합니다
+
+22. unvulnerable [showmore:"True"]
+    - unvulnerable 코드의 시스템 정보를 알립니다
+    - showmore 버전따위 정보를 동반시킵니다
+
+23. gourl {media:"사이트"} [timeout:초] 
+    - media선택으로 url로 이동합니다 (youtube,instagram,discord,github,gmail)
+    - timemout 일정시간후 url로 이동합니다
+    *팝업차단을 조심하세요*
+
+24. crawl {info:"검색어"} [engine:"google/edge"] [goto:"image/news/video"] [language:"ko/en/ja/de/ru"]
+    - 검색어를 사이트에서 크롤링함니다
+    - engine 검색 엔진을 선택합니다 
+    - goto 이미지 따위의 탭으로 이동합니다
+    - language 다른 언어로 검색 결과를 나타냅니다
+
+25. unvulnotepad
+    - UnvulNotepad를 불러옵니다    
 
 ---
 
@@ -233,6 +255,7 @@
 `;
   block.innerText += detailedHelp;
   return;
+  
 
 
         
@@ -427,7 +450,7 @@ if (textcolor) document.body.style.setProperty('color', textcolor, 'important');
     countryStr = '';
   }
 
-  block.innerText += `\n🕒 현재 시각: ${timeStr}${countryStr ? ` (${countryStr})` : ''}`;
+  block.innerText += `\n 현재 시각: ${timeStr}${countryStr ? ` (${countryStr})` : ''}`;
   return;
 } else if ((match = cmd.match(foodPattern))) {
   const totalBites = parseInt(match[1]);
@@ -471,6 +494,155 @@ if (textcolor) document.body.style.setProperty('color', textcolor, 'important');
   block.innerText += `\n버튼이 나타났습니다. ${totalBites}번 클릭하십시오`;
   return;
 }
+else if (lowerCmd.startsWith('getrandom')) {
+  const materialMatch = cmd.match(/\{material\s*:\s*"(coin|dice)"\s*\}/i);
+  if (!materialMatch) {
+    block.innerText += `\n⚠ 오류: material 옵션이 없습니다. {material:"coin"} 또는 {material:"dice"} 형식으로 작성해주세요.`;
+    return;
+  }
+
+  const material = materialMatch[1].toLowerCase();
+
+  if (material === 'coin') {
+    const faceMatch = cmd.match(/\[coinmessageface\s*:\s*"(.*?)"\s*\]/i);
+    const tailMatch = cmd.match(/\[coinmessagetail\s*:\s*"(.*?)"\s*\]/i);
+    const face = faceMatch ? faceMatch[1] : '앞면';
+    const tail = tailMatch ? tailMatch[1] : '뒷면';
+    const result = Math.random() < 0.5 ? face : tail;
+    block.innerText += `\n동전 결과: ${result}`;
+    return;
+
+  } else if (material === 'dice') {
+    const faceMatch = cmd.match(/\[diceface\s*:\s*(\d+)\s*\]/i);
+    const faces = faceMatch ? parseInt(faceMatch[1]) : 6;
+    if (faces < 1 || isNaN(faces)) {
+      block.innerText += `\n⚠ 오류: 주사위 면 수가 잘못되었습니다. [diceface:숫자] 형식으로 1 이상의 숫자를 입력하세요.`;
+      return;
+    }
+    const result = Math.floor(Math.random() * faces) + 1;
+    block.innerText += `\n주사위 결과 (1~${faces}): ${result}`;
+    return;
+  }
+
+  block.innerText += `\n⚠ 오류: material 값이 'coin' 또는 'dice' 여야 합니다.`;
+  return;
+}
+else if (lowerCmd.startsWith('unvulnerable')) {
+  const showmore = /\[showmore\s*:\s*"true"\s*\]/i.test(cmd);
+  
+  if (showmore) {
+    block.innerText += `\nVisit here for more info (Version : 1.47 B) (https://sites.google.com/view/unnamedproject/%ED%99%88?pli=1)`;
+  } else {
+    block.innerText += `\nUnvulnerable Code (Made by 범서)`;
+  }
+  return;
+}
+else if (lowerCmd.startsWith('gourl')) {
+  const mediaMatch = cmd.match(/\{media\s*:\s*"(youtube|instagram|discord|github|gmail|google)"\s*\}/i);
+  const timeoutMatch = cmd.match(/\[timeout\s*:\s*(\d+)\s*\]/i);
+
+  const timeoutVal = timeoutMatch ? parseInt(timeoutMatch[1]) : 1;
+
+  if (!mediaMatch) {
+    block.innerText += `\n⚠ 오류: 미디어 종류가 누락되었거나 잘못되었습니다.\n예: gourl {media:"youtube"} [timeout:3]`;
+    return;
+  }
+
+  const media = mediaMatch[1].toLowerCase();
+  let url = '';
+
+  switch (media) {
+    case 'youtube': url = 'https://www.youtube.com'; break;
+    case 'instagram': url = 'https://www.instagram.com'; break;
+    case 'discord': url = 'https://discord.com'; break;
+    case 'github': url = 'https://github.com'; break;
+    case 'gmail': url = 'https://mail.google.com'; break;
+    case 'google': url = 'https://google.com'; break;
+
+    default:
+      block.innerText += `\n⚠ 오류: 알 수 없는 미디어입니다.`; return;
+  }
+
+  block.innerText += `\n${timeoutVal}초 후 ${media}로 이동합니다...`;
+
+  setTimeout(() => {
+    window.open(url, '_blank');
+  }, timeoutVal * 1000);
+  
+  return;
+}
+else if (lowerCmd === 'unvulnotepad') {
+  block.innerText += `\nUnvulNotepad로 이동 중...`;
+  setTimeout(() => {
+    window.location.href = 'notepad.html';
+  }, 2000);
+  return;
+}
+else if (lowerCmd.startsWith('crawl')) {
+  // {info:"검색어"} 필수
+  const infoMatch = cmd.match(/\{info\s*:\s*"(.+?)"\s*\}/i);
+  // [engine:"google"/"edge"]
+  const engineMatch = cmd.match(/\[engine\s*:\s*"(google|edge)"\s*\]/i);
+  // [goto:"image"/"news"/"video"]
+  const gotoMatch = cmd.match(/\[goto\s*:\s*"(image|news|video)"\s*\]/i);
+  // [language:"ko"/"en"/"ja"/"de"/"ru"]
+  const languageMatch = cmd.match(/\[language\s*:\s*"(ko|en|ja|de|ru)"\s*\]/i);
+
+  if (!infoMatch) {
+    block.innerText += `\n⚠ 오류: {info:"검색어"} 형식이 필요합니다.`;
+    return;
+  }
+
+  const query = encodeURIComponent(infoMatch[1]);
+  const engine = engineMatch ? engineMatch[1].toLowerCase() : 'google';
+  const goto = gotoMatch ? gotoMatch[1].toLowerCase() : null;
+  const language = languageMatch ? languageMatch[1].toLowerCase() : null;
+
+  let url = '';
+
+  if (engine === 'google') {
+    if (goto === 'image') {
+      url = `https://www.google.com/search?tbm=isch&q=${query}`;
+    } else if (goto === 'news') {
+      url = `https://www.google.com/search?tbm=nws&q=${query}`;
+    } else if (goto === 'video') {
+      url = `https://www.google.com/search?tbm=vid&q=${query}`;
+    } else {
+      url = `https://www.google.com/search?q=${query}`;
+    }
+
+    if (language) {
+      url += `&hl=${language}`;
+    }
+
+  } else if (engine === 'edge') {
+    if (goto === 'image') {
+      url = `https://www.bing.com/images/search?q=${query}`;
+    } else if (goto === 'news') {
+      url = `https://www.bing.com/news/search?q=${query}`;
+    } else if (goto === 'video') {
+      url = `https://www.bing.com/videos/search?q=${query}`;
+    } else {
+      url = `https://www.bing.com/search?q=${query}`;
+    }
+
+    if (language) {
+      url += `&setlang=${language}`;
+    }
+
+  } else {
+    block.innerText += `\n⚠ 오류: 지원하지 않는 검색 엔진입니다.`;
+    return;
+  }
+
+  block.innerText += `\n🔎 ${engine}에서 ${goto ? goto : '일반'} 검색 결과 페이지를 새 창으로 엽니다.`;
+  setTimeout(() => window.open(url, '_blank'), 800);
+  return;
+}
+
+
+
+
 
 
       if ((match = cmd.match(stringPattern))) {
