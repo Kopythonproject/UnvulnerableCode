@@ -234,7 +234,7 @@ function handleNotepadCommands(code) {
       }
     });
 
-    function handleCommand(cmd) {
+        function handleCommand(cmd) {
       const stringPattern = /^title\s+string\s*\{\s*"(.*?)"\s*\}(.*)$/i;
       const numPattern = /^title\s+num\s*\{\s*(\d+)\s*\}(.*)$/i;
       const alertStrPattern = /^alert\s+string\s*\{\s*\"(.*?)\"\s*\}$/i;
@@ -245,7 +245,7 @@ function handleNotepadCommands(code) {
     
 
 
-       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}\n- showtime\n-food {bite:숫자}\n-getrandom {material:"도구"}\n- unvulnerable\n- gourl {media:"사이트"}`;
+       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}\n- showtime\n- food {bite:숫자}\n- getrandom {material:"도구"}\n- unvulnerable\n- gourl {media:"사이트"}\n- unvulnotepad\n- crawl {"검색어"} `;
       let match, text = '', timeout = 3, color = 'skyblue', isBold = false, isItalic = false;
       const lowerCmd = cmd.toLowerCase();
 
@@ -366,9 +366,18 @@ function handleNotepadCommands(code) {
     - showmore 버전따위 정보를 동반시킵니다
 
 23. gourl {media:"사이트"} [timeout:초] 
-    -media선택으로 url로 이동합니다 (youtube,instagram,discord,github,gmail)
-    -timemout 일정시간후 url로 이동합니다
+    - media선택으로 url로 이동합니다 (youtube,instagram,discord,github,gmail)
+    - timemout 일정시간후 url로 이동합니다
     *팝업차단을 조심하세요*
+
+24. crawl {info:"검색어"} [engine:"google/edge"] [goto:"image/news/video"] [language:"ko/en/ja/de/ru"]
+    - 검색어를 사이트에서 크롤링함니다
+    - engine 검색 엔진을 선택합니다 
+    - goto 이미지 따위의 탭으로 이동합니다
+    - language 다른 언어로 검색 결과를 나타냅니다
+
+25. unvulnotepad
+    - UnvulNotepad를 불러옵니다    
 
 ---
 
@@ -659,7 +668,7 @@ else if (lowerCmd.startsWith('unvulnerable')) {
   return;
 }
 else if (lowerCmd.startsWith('gourl')) {
-  const mediaMatch = cmd.match(/\{media\s*:\s*"(youtube|instagram|discord|github|gmail)"\s*\}/i);
+  const mediaMatch = cmd.match(/\{media\s*:\s*"(youtube|instagram|discord|github|gmail|google)"\s*\}/i);
   const timeoutMatch = cmd.match(/\[timeout\s*:\s*(\d+)\s*\]/i);
 
   const timeoutVal = timeoutMatch ? parseInt(timeoutMatch[1]) : 1;
@@ -678,6 +687,8 @@ else if (lowerCmd.startsWith('gourl')) {
     case 'discord': url = 'https://discord.com'; break;
     case 'github': url = 'https://github.com'; break;
     case 'gmail': url = 'https://mail.google.com'; break;
+    case 'google': url = 'https://google.com'; break;
+
     default:
       block.innerText += `\n⚠ 오류: 알 수 없는 미디어입니다.`; return;
   }
@@ -691,12 +702,76 @@ else if (lowerCmd.startsWith('gourl')) {
   return;
 }
 else if (lowerCmd === 'unvulnotepad') {
-  block.innerText += `\n🔀 긴 코드 모드로 이동 중...`;
+  block.innerText += `\nUnvulNotepad로 이동 중...`;
   setTimeout(() => {
     window.location.href = 'notepad.html';
-  }, 1000);
+  }, 2000);
   return;
 }
+else if (lowerCmd.startsWith('crawl')) {
+  // {info:"검색어"} 필수
+  const infoMatch = cmd.match(/\{info\s*:\s*"(.+?)"\s*\}/i);
+  // [engine:"google"/"edge"]
+  const engineMatch = cmd.match(/\[engine\s*:\s*"(google|edge)"\s*\]/i);
+  // [goto:"image"/"news"/"video"]
+  const gotoMatch = cmd.match(/\[goto\s*:\s*"(image|news|video)"\s*\]/i);
+  // [language:"ko"/"en"/"ja"/"de"/"ru"]
+  const languageMatch = cmd.match(/\[language\s*:\s*"(ko|en|ja|de|ru)"\s*\]/i);
+
+  if (!infoMatch) {
+    block.innerText += `\n⚠ 오류: {info:"검색어"} 형식이 필요합니다.`;
+    return;
+  }
+
+  const query = encodeURIComponent(infoMatch[1]);
+  const engine = engineMatch ? engineMatch[1].toLowerCase() : 'google';
+  const goto = gotoMatch ? gotoMatch[1].toLowerCase() : null;
+  const language = languageMatch ? languageMatch[1].toLowerCase() : null;
+
+  let url = '';
+
+  if (engine === 'google') {
+    if (goto === 'image') {
+      url = `https://www.google.com/search?tbm=isch&q=${query}`;
+    } else if (goto === 'news') {
+      url = `https://www.google.com/search?tbm=nws&q=${query}`;
+    } else if (goto === 'video') {
+      url = `https://www.google.com/search?tbm=vid&q=${query}`;
+    } else {
+      url = `https://www.google.com/search?q=${query}`;
+    }
+
+    if (language) {
+      url += `&hl=${language}`;
+    }
+
+  } else if (engine === 'edge') {
+    if (goto === 'image') {
+      url = `https://www.bing.com/images/search?q=${query}`;
+    } else if (goto === 'news') {
+      url = `https://www.bing.com/news/search?q=${query}`;
+    } else if (goto === 'video') {
+      url = `https://www.bing.com/videos/search?q=${query}`;
+    } else {
+      url = `https://www.bing.com/search?q=${query}`;
+    }
+
+    if (language) {
+      url += `&setlang=${language}`;
+    }
+
+  } else {
+    block.innerText += `\n⚠ 오류: 지원하지 않는 검색 엔진입니다.`;
+    return;
+  }
+
+  block.innerText += `\n ${engine}에서 ${goto ? goto : '일반'} 검색 결과 페이지를 새 창으로 엽니다.`;
+  setTimeout(() => window.open(url, '_blank'), 800);
+  return;
+}
+
+
+
 
 
 
@@ -774,6 +849,21 @@ else if (lowerCmd === 'unvulnotepad') {
         recordBtn.textContent = '녹화 중지';
       }
     });
+
+    function injectWaveStyle() {
+  if (document.getElementById('wave-style')) return;
+  const style = document.createElement('style');
+  style.id = 'wave-style';
+  style.innerHTML = `
+    @keyframes waveMove {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0); }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 
     function injectWaveStyle() {
   if (document.getElementById('wave-style')) return;
