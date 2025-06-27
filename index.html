@@ -635,7 +635,7 @@ else if (lowerCmd.startsWith('crawl')) {
     return;
   }
 
-  block.innerText += `\n🔎 ${engine}에서 ${goto ? goto : '일반'} 검색 결과 페이지를 새 창으로 엽니다.`;
+  block.innerText += `\n ${engine}에서 ${goto ? goto : '일반'} 검색 결과 페이지를 새 창으로 엽니다.`;
   setTimeout(() => window.open(url, '_blank'), 800);
   return;
 }
