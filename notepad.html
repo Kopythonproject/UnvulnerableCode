@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>UnvulNotepad</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5/lib/codemirror.css">
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5/lib/codemirror.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5/mode/javascript/javascript.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5/addon/edit/matchbrackets.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5/addon/edit/closebrackets.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: #1e1e1e;
+      color: white;
+      font-family: monospace;
+    }
+    #editor {
+      height: 90vh;
+    }
+    #runBtn {
+      width: 100%;
+      padding: 12px;
+      font-size: 18px;
+      background: #2196f3;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    #log {
+      padding: 10px;
+      background: #111;
+      border-top: 1px solid #333;
+      font-size: 14px;
+      white-space: pre-line;
+    }
+        #output {
+      white-space: pre-line;
+      margin-bottom: 10px;
+    }
+    #input {
+      width: 100%;
+      background: #1e1e1e;
+      border: none;
+      border-top: 1px solid #444;
+      color: #d4d4d4;
+      padding: 10px;
+      font-size: 16px;
+    }
+    #output .log-block {
+      white-space: pre-line;
+      margin-bottom: 10px;
+    }
+    .alert-box {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #ffeb3b;
+      color: #000;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: bold;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 9999;
+      animation: fadein 0.5s ease;
+    }
+    .title-box {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      color: skyblue;
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 20px;
+      border-radius: 12px;
+      z-index: 9999;
+      font-weight: bold;
+    }
+    #recordBtn {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background: #2196f3;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      z-index: 10000;
+    }
+        #thankyou-msg {
+      font-size: 20px;
+      color: #ffcc00;
+      text-align: center;
+      margin-top: 20px;
+    }
+    @keyframes fadein {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    
+  </style>
+</head>
+<body>
+<textarea id="editor">// 기본 명령어만 사용가능하므로 업데이트를 기다리십시오...</textarea>
+<button id="runBtn">명령어 실행</button>
+<div id="output"></div>
+<button id="recordBtn" style="display:none;">녹화 시작</button>
+
+
+<script>
+  const editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
+    mode: "javascript",
+    theme: "default",
+    lineNumbers: true,
+    matchBrackets: true,
+    autoCloseBrackets: true,
+    tabSize: 2,
+  });
+
+  document.getElementById("runBtn").addEventListener("click", () => {
+    const code = editor.getValue();
+    handleNotepadCommands(code);
+  });
+
+  function log(msg) {
+    const logDiv = document.getElementById('log');
+    logDiv.innerText += msg + "\n";
+  }
+
+function handleNotepadCommands(code) {
+  const lines = code.split('\n');
+
+  let insideIfBlock = false;
+  let currentCondition = null;
+  let blockLines = [];
+
+  for (let rawLine of lines) {
+    let line = rawLine.trim();
+
+    // 주석 무시
+    if (line.startsWith('//') || line.startsWith('#') || line === '') continue;
+
+    if (!insideIfBlock) {
+      if (line.startsWith('if ')) {
+        // 단일 if 구문 또는 블록 if 시작 체크
+        const singleIfMatch = line.match(/^if\s+(==|!=|contains|startswith)\s*"(.+?)"\s*\{\s*(.+?)\s*\}$/);
+        const blockIfStartMatch = line.match(/^if\s+(==|!=|contains|startswith)\s*"(.+?)"\s*\{\s*$/);
+
+        if (singleIfMatch) {
+          // 한 줄 if 처리
+          const op = singleIfMatch[1];
+          const condValue = singleIfMatch[2];
+          const innerCmd = singleIfMatch[3];
+
+          if (evaluateCondition(op, condValue)) {
+            handleCommand(innerCmd);
+          } else {
+            log(`조건 불일치로 무시됨: ${condValue}`);
+          }
+        } else if (blockIfStartMatch) {
+          insideIfBlock = true;
+          currentCondition = { op: blockIfStartMatch[1], value: blockIfStartMatch[2] };
+          blockLines = [];
+        } else {
+          log(`⚠ if 구문 오류: ${line}`);
+        }
+      } else {
+        // 일반 명령어 처리
+        try {
+          handleCommand(line);
+        } catch (e) {
+          log(`⚠ 명령어 처리 오류: ${e.message}`);
+        }
+      }
+    } else {
+      // 블록 내부 처리
+      if (line === '}') {
+        insideIfBlock = false;
+
+        if (evaluateCondition(currentCondition.op, currentCondition.value)) {
+          for (const cmdLine of blockLines) {
+            try {
+              handleCommand(cmdLine);
+            } catch (e) {
+              log(`⚠ 블록 명령어 처리 오류: ${e.message}`);
+            }
+          }
+        } else {
+          log(`조건 불일치로 블록 무시됨: ${currentCondition.value}`);
+        }
+
+        currentCondition = null;
+        blockLines = [];
+      } else {
+        blockLines.push(line);
+      }
+    }
+  }
+
+  function evaluateCondition(op, condValue) {
+    // 조건 평가 기본 예시 (여기에 유저 환경 변수나 상태값 체크 코드 추가 가능)
+    const testValue = "korea"; // 예시 하드코딩 테스트값
+
+    switch (op) {
+      case '==': return testValue === condValue;
+      case '!=': return testValue !== condValue;
+      case 'contains': return testValue.includes(condValue);
+      case 'startswith': return testValue.startsWith(condValue);
+      default: return false;
+    }
+  }
+}
+
+
+
+  const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const recordBtn = document.getElementById('recordBtn');
+
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let streamRef = null;
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const command = input.value.trim();
+        handleCommand(command);
+        input.value = '';
+      }
+    });
+
+    function handleCommand(cmd) {
+      const stringPattern = /^title\s+string\s*\{\s*"(.*?)"\s*\}(.*)$/i;
+      const numPattern = /^title\s+num\s*\{\s*(\d+)\s*\}(.*)$/i;
+      const alertStrPattern = /^alert\s+string\s*\{\s*\"(.*?)\"\s*\}$/i;
+      const alertNumPattern = /^alert\s+num\s*\{\s*(\d+)\s*\}$/i;
+      const thankyouPattern = /^thankyou\s*\{\s*timeout\s*:\s*(\d+)\s*\}(.*)$/i;
+      const foodPattern = /^food\s*\{\s*bite\s*:\s*(\d+)\s*\}$/i;
+
+    
+
+
+       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}\n- showtime\n-food {bite:숫자}\n-getrandom {material:"도구"}\n- unvulnerable\n- gourl {media:"사이트"}`;
+      let match, text = '', timeout = 3, color = 'skyblue', isBold = false, isItalic = false;
+      const lowerCmd = cmd.toLowerCase();
+
+      const block = document.createElement('div');
+      block.className = 'log-block';
+      block.innerText = `> ${cmd}`;
+      output.appendChild(block);
+
+      if ((match = cmd.match(thankyouPattern))) {
+  const timeoutVal = parseInt(match[1]);
+  const options = match[2] || '';
+  const noThankYou = /\[nothankyou\s*:\s*"true"\s*\]/i.test(options);
+  const inputBox = document.getElementById('input');
+  inputBox.style.display = 'none';
+
+  if (!noThankYou) {
+    const msg = document.createElement('div');
+    msg.id = 'thankyou-msg';
+    msg.innerText = 'Thank You!';
+    output.appendChild(msg);
+  }
+
+  setTimeout(() => {
+    inputBox.style.display = 'block';
+    const msg = document.getElementById('thankyou-msg');
+    if (msg) msg.remove();
+  }, timeoutVal * 1000);
+
+  block.innerText += `\n감사 메시지를 표시하고 입력란을 잠시 숨깁니다.`;
+  return;
+}
+
+
+      if (lowerCmd === 'help') {
+  block.innerText += `\n${helpText}`;
+  return;
+} else if (lowerCmd === 'help [more]' || lowerCmd === 'help[more]') {
+  const detailedHelp = `
+사용 가능한 명령어 및 부속 옵션 상세 가이드:
+
+1. title string {"텍스트"} [timeout:n] [color:"색상"] [bold:"True"] [italic:"True"]
+   - 화면 중앙에 텍스트를 표시
+   - timeout: 몇 초 후 사라질지 (기본 3초)
+   - color: 텍스트 색상
+   - bold: 진하게 표시
+   - italic: 이탤릭체 적용
+
+2. title num {숫자} [timeout:n] [color:"색상"] [bold:"True"] [italic:"True"]
+   - 숫자를 텍스트처럼 표시
+
+3. title clear all
+   - 모든 타이틀 삭제
+
+4. title clear recent
+   - 가장 최근 타이틀 하나 삭제
+
+5. cls all
+   - 모든 로그창(clear)
+
+6. cls recent
+   - 가장 최근 로그 한 줄 삭제
+
+7. alert string {"텍스트"}
+   - 화면 우측 상단에 알림 표시 (3초 후 사라짐)
+
+8. alert num {숫자}
+   - 숫자 알림 표시
+
+9. style [page:"wavy"/"tornado"/"dragon"] [bgcolor:"색상"] [textcolor:"색상"]
+   - 페이지 스타일 변경
+   - wavy: 중간에 물결 애니메이션, 위는 바다색, 아래는 모래색 배경
+   - tornado, dragon: 추후 구현 예정
+   - bgcolor, textcolor: 배경색, 텍스트 색상 지정 (독립적)
+
+10. style [na]
+    - 스타일 초기화, 기본 배경과 글자색으로 복원
+
+11. record myself
+    - 내 카메라 화면 녹화 준비
+
+12. record otherpage
+    - 화면 공유 녹화 준비
+
+13. record showbutton [buttonsize:"large"/"medium"/"small"]
+    - 녹화 시작/중지 버튼 표시, 크기 선택 가능 (기본 medium)
+
+14. record save [file:mp4/webm/mp3]
+    - 녹화한 데이터 저장, 파일 형식 선택 (기본 webm)
+
+15. record clear
+    - 녹화 데이터 및 리소스 초기화
+
+16. thankyou {timeout:n} [nothankyou:"True"]
+    - "Thank You!" 메시지 출력하며 입력 잠시 숨김
+    - nothankyou 옵션으로 메시지 숨김 가능
+
+17. help
+    - 기본 도움말 출력
+
+18. help [more]
+    - 모든 명령어 및 옵션 상세 가이드 출력
+
+19. showtime [ifcountry:"국가코드"] [notshow:"seconds/country"]
+    - 지금 현재 기기가 나타내는 시간을 알려줌
+    - ifcountry 해당 국가 한정으로 시간옆 국가를 지정함
+    - notshow seconds, notshow country 초단위 또는 소속국가를 숨김
+ 
+20. food {bite:숫자}
+    - 일정 횟수의 클릭을 요구합니다
+
+21. getrandom {material:"coin/dice"} [diceface:숫자] [coinmessageface:"메시지"] [coinmessagetail:"메시지"] 
+    - 주사위나 동전을 이용하여 무작위성을 확인시킵니다
+    - diceface 주사위의 면수를 정합니다 (1면 이상)
+    - coinmessageface, coinmessagetail 동전의 앞면과 뒷면의 이름을 정합니다
+
+22. unvulnerable [showmore:"True"]
+    - unvulnerable 코드의 시스템 정보를 알립니다
+    - showmore 버전따위 정보를 동반시킵니다
+
+23. gourl {media:"사이트"} [timeout:초] 
+    -media선택으로 url로 이동합니다 (youtube,instagram,discord,github,gmail)
+    -timemout 일정시간후 url로 이동합니다
+    *팝업차단을 조심하세요*
+
+---
+
+(Made by 범서) all rights reserved!
+`;
+  block.innerText += detailedHelp;
+  return;
+  
+
+
+        
+      } else if (lowerCmd === 'title clear all') {
+        document.querySelectorAll('.title-box').forEach(el => el.remove());
+        block.innerText += `\n모든 타이틀을 제거했습니다.`;
+        return;
+      } else if (lowerCmd === 'title clear recent') {
+        const boxes = document.querySelectorAll('.title-box');
+        if (boxes.length > 0) {
+          boxes[boxes.length - 1].remove();
+          block.innerText += `\n가장 최근 타이틀 하나를 제거했습니다.`;
+        } else {
+          block.innerText += `\n⚠ 오류: 제거할 타이틀이 없습니다.`;
+        }
+        return;
+      } else if (lowerCmd === 'cls all') {
+        document.querySelectorAll('.log-block').forEach(el => el.remove());
+        return;
+      } else if (lowerCmd === 'cls recent') {
+        const blocks = document.querySelectorAll('.log-block');
+        if (blocks.length > 0) {
+          blocks[blocks.length - 1].remove();
+        } else {
+          block.innerText += `\n⚠ 오류: 삭제할 로그가 없습니다.`;
+        }
+        return;
+        } else if (lowerCmd.startsWith('style')) {
+            const naMatch = cmd.match(/\[na\]/i);
+  const pageMatch = cmd.match(/\[page\s*:\s*"(.+?)"\s*\]/i);
+  const bgMatch = cmd.match(/\[bgcolor\s*:\s*"(.+?)"\s*\]/i);
+  const textMatch = cmd.match(/\[textcolor\s*:\s*"(.+?)"\s*\]/i);
+
+  const page = pageMatch ? pageMatch[1].toLowerCase() : null;
+  const bgcolor = bgMatch ? bgMatch[1] : null;
+  const textcolor = textMatch ? textMatch[1] : null;
+
+if (naMatch) {
+    // 스타일 초기화
+    document.body.style.removeProperty('background');
+    document.body.style.removeProperty('background-color');
+    document.body.style.removeProperty('color');
+
+    // 기존 기본 스타일로 되돌리기 (필요 시 직접 명시 가능)
+    document.body.style.background = '#1e1e1e';
+    document.body.style.color = '#d4d4d4';
+
+    // wavy 스타일용 wave div 제거
+    const waveDiv = document.querySelector('div[data-wave="true"]');
+    if (waveDiv) waveDiv.remove();
+
+    // wave-style <style> 태그 제거
+    const waveStyleTag = document.getElementById('wave-style');
+    if (waveStyleTag) waveStyleTag.remove();
+
+    block.innerText += '\n스타일이 초기화되어 기본 상태로 복구되었습니다.';
+    return;
+  }
+
+  if (!page && !bgcolor && !textcolor) {
+    block.innerText += `\n명령어가 잘 실행되었습니다.`;
+    return;
+  }
+
+if (bgcolor) document.body.style.setProperty('background-color', bgcolor, 'important');
+if (textcolor) document.body.style.setProperty('color', textcolor, 'important');
+
+ if (page === 'wavy') {
+  document.body.style.setProperty('background', `linear-gradient(to bottom, #2196f3 0%, #2196f3 50%, #fdd835 50%, #fdd835 100%)`, 'important');
+    const wave = document.createElement('div');
+    wave.style.position = 'fixed';
+    wave.style.top = '50%';
+    wave.style.left = '0';
+    wave.style.width = '100%';
+    wave.style.height = '20px';
+    wave.style.background = '#81d4fa';
+    wave.style.boxShadow = '0 0 20px #03a9f4';
+    wave.style.animation = 'waveMove 2s infinite ease-in-out';
+    wave.style.zIndex = '-1';
+    document.body.appendChild(wave);
+    injectWaveStyle();
+    block.innerText += `\n🌊 wavy 스타일이 적용되었습니다.`;
+  } else if (page === 'tornado') {
+    block.innerText += `\n🌪 tornado 스타일은 아직 구현되지 않았습니다.`; // placeholder
+  } else if (page === 'dragon') {
+    block.innerText += `\n🐉 dragon 스타일은 아직 구현되지 않았습니다.`; // placeholder
+  } else if (page) {
+    block.innerText += `\n⚠ 오류: 알 수 없는 page 스타일입니다.`;
+  }
+  return;
+
+      } else if (lowerCmd === 'record myself') {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+          .then(stream => {
+            streamRef = stream;
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+            block.innerText += `\n카메라 녹화 준비 완료.`;
+          })
+          .catch(() => block.innerText += `\n⚠ 오류: 카메라 접근이 거부되었습니다.`);
+        return;
+      } else if (lowerCmd === 'record otherpage') {
+        block.innerText += `\n녹화할 화면을 선택해주세요.`;
+        navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+          .then(stream => {
+            streamRef = stream;
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+            block.innerText += `\n화면 녹화 준비 완료.`;
+          })
+          .catch(() => block.innerText += `\n⚠ 오류: 화면 공유가 취소되었습니다.`);
+        return;
+      } else if (lowerCmd.startsWith('record showbutton')) {
+  const sizeMatch = cmd.match(/\[buttonsize\s*:\s*"(large|medium|small)"\s*\]/i);
+  let size = 'medium';
+  if (sizeMatch) size = sizeMatch[1].toLowerCase();
+
+  // 버튼 크기 설정
+  let fontSize = '14px', padding = '10px 20px';
+  if (size === 'large') {
+    fontSize = '20px'; padding = '14px 28px';
+  } else if (size === 'small') {
+    fontSize = '10px'; padding = '6px 12px';
+  }
+
+  recordBtn.style.fontSize = fontSize;
+  recordBtn.style.padding = padding;
+  recordBtn.style.display = 'block';
+  block.innerText += `\n녹화 버튼이 '${size}' 크기로 활성화되었습니다.`;
+  return;
+
+} else if (lowerCmd.startsWith('record save')) {
+  if (recordedChunks.length === 0) {
+    block.innerText += `\n⚠ 오류: 저장할 녹화 데이터가 없습니다.`;
+    return;
+  }
+
+  const fileMatch = cmd.match(/\[file\s*:\s*(mp4|webm|mp3)\s*\]/i);
+  const fileType = fileMatch ? fileMatch[1].toLowerCase() : 'webm';
+
+  let mimeType = 'video/webm';
+  if (fileType === 'mp4') mimeType = 'video/mp4';
+  else if (fileType === 'mp3') mimeType = 'audio/mp3';
+
+  const blob = new Blob(recordedChunks, { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `recording.${fileType}`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  block.innerText += `\n녹화 파일이 .${fileType} 형식으로 저장되었습니다.`;
+  return;
+}
+
+
+       else if (lowerCmd === 'record clear') {
+        recordedChunks = [];
+        streamRef?.getTracks().forEach(track => track.stop());
+        streamRef = null;
+        mediaRecorder = null;
+        recordBtn.style.display = 'none';
+        block.innerText += `\n녹화 관련 리소스 초기화 완료.`;
+        return;
+      }
+       else if (lowerCmd.startsWith('showtime')) {
+  const ifCountryMatch = cmd.match(/\[ifcountry\s*:\s*"(.+?)"\s*\]/i);
+  const notShowMatch = cmd.match(/\[notshow\s*:\s*"(.+?)"\s*\]/i);
+
+  const allowedCountries = ifCountryMatch ? ifCountryMatch[1].split('/').map(c => c.trim().toLowerCase()) : null;
+  const hiddenParts = notShowMatch ? notShowMatch[1].split('/').map(p => p.trim().toLowerCase()) : [];
+
+  // 국가 감지는 navigator.language 기반 (정확도 한계 있지만 일반적 대안)
+  const userLang = navigator.language || '';
+  const userCountryGuess = userLang.split('-')[1]?.toLowerCase() || '';
+
+  if (allowedCountries && !allowedCountries.includes(userCountryGuess)) {
+    block.innerText += `\n⚠ 이 명령어는 해당 국가에서만 실행됩니다. (${allowedCountries.join(', ')})`;
+    return;
+  }
+
+  const now = new Date();
+  let timeStr = now.toLocaleTimeString(); // ex: 17:10:43
+  let countryStr = userCountryGuess.toUpperCase() || 'UNKNOWN';
+
+  // 제거 처리
+  if (hiddenParts.includes('seconds')) {
+    timeStr = timeStr.replace(/:\d{2}$/, ''); // 마지막 :ss 제거
+  }
+  if (hiddenParts.includes('country')) {
+    countryStr = '';
+  }
+
+  block.innerText += `\n 현재 시각: ${timeStr}${countryStr ? ` (${countryStr})` : ''}`;
+  return;
+} else if ((match = cmd.match(foodPattern))) {
+  const totalBites = parseInt(match[1]);
+  if (isNaN(totalBites) || totalBites <= 0) {
+    block.innerText += `\n⚠ 오류: bite 값은 양의 정수여야 합니다.`;
+    return;
+  }
+
+  let bitesLeft = totalBites;
+  const inputBox = document.getElementById('input');
+  inputBox.style.display = 'none';
+
+  const button = document.createElement('button');
+  button.textContent = `클릭 (${bitesLeft}번 남음)`;
+  button.style.position = 'fixed';
+  button.style.top = '50%';
+  button.style.left = '50%';
+  button.style.transform = 'translate(-50%, -50%)';
+  button.style.padding = '14px 28px';
+  button.style.fontSize = '20px';
+  button.style.background = '#ff7043';
+  button.style.color = 'white';
+  button.style.border = 'none';
+  button.style.borderRadius = '10px';
+  button.style.cursor = 'pointer';
+  button.style.zIndex = '9999';
+
+  document.body.appendChild(button);
+
+  button.addEventListener('click', () => {
+    bitesLeft--;
+    if (bitesLeft > 0) {
+      button.textContent = `클릭 (${bitesLeft}번 남음)`;
+    } else {
+      button.remove();
+      inputBox.style.display = 'block';
+      block.innerText += `\n횟수를 모두 채웠습니다. 다시 명령어를 입력할 수 있습니다.`;
+    }
+  });
+
+  block.innerText += `\n버튼이 나타났습니다. ${totalBites}번 클릭하십시오`;
+  return;
+}
+else if (lowerCmd.startsWith('getrandom')) {
+  const materialMatch = cmd.match(/\{material\s*:\s*"(coin|dice)"\s*\}/i);
+  if (!materialMatch) {
+    block.innerText += `\n⚠ 오류: material 옵션이 없습니다. {material:"coin"} 또는 {material:"dice"} 형식으로 작성해주세요.`;
+    return;
+  }
+
+  const material = materialMatch[1].toLowerCase();
+
+  if (material === 'coin') {
+    const faceMatch = cmd.match(/\[coinmessageface\s*:\s*"(.*?)"\s*\]/i);
+    const tailMatch = cmd.match(/\[coinmessagetail\s*:\s*"(.*?)"\s*\]/i);
+    const face = faceMatch ? faceMatch[1] : '앞면';
+    const tail = tailMatch ? tailMatch[1] : '뒷면';
+    const result = Math.random() < 0.5 ? face : tail;
+    block.innerText += `\n동전 결과: ${result}`;
+    return;
+
+  } else if (material === 'dice') {
+    const faceMatch = cmd.match(/\[diceface\s*:\s*(\d+)\s*\]/i);
+    const faces = faceMatch ? parseInt(faceMatch[1]) : 6;
+    if (faces < 1 || isNaN(faces)) {
+      block.innerText += `\n⚠ 오류: 주사위 면 수가 잘못되었습니다. [diceface:숫자] 형식으로 1 이상의 숫자를 입력하세요.`;
+      return;
+    }
+    const result = Math.floor(Math.random() * faces) + 1;
+    block.innerText += `\n주사위 결과 (1~${faces}): ${result}`;
+    return;
+  }
+
+  block.innerText += `\n⚠ 오류: material 값이 'coin' 또는 'dice' 여야 합니다.`;
+  return;
+}
+else if (lowerCmd.startsWith('unvulnerable')) {
+  const showmore = /\[showmore\s*:\s*"true"\s*\]/i.test(cmd);
+  
+  if (showmore) {
+    block.innerText += `\nVisit here for more info (Version : 1.47 B) (https://sites.google.com/view/unnamedproject/%ED%99%88?pli=1)`;
+  } else {
+    block.innerText += `\nUnvulnerable Code (Made by 범서)`;
+  }
+  return;
+}
+else if (lowerCmd.startsWith('gourl')) {
+  const mediaMatch = cmd.match(/\{media\s*:\s*"(youtube|instagram|discord|github|gmail)"\s*\}/i);
+  const timeoutMatch = cmd.match(/\[timeout\s*:\s*(\d+)\s*\]/i);
+
+  const timeoutVal = timeoutMatch ? parseInt(timeoutMatch[1]) : 1;
+
+  if (!mediaMatch) {
+    block.innerText += `\n⚠ 오류: 미디어 종류가 누락되었거나 잘못되었습니다.\n예: gourl {media:"youtube"} [timeout:3]`;
+    return;
+  }
+
+  const media = mediaMatch[1].toLowerCase();
+  let url = '';
+
+  switch (media) {
+    case 'youtube': url = 'https://www.youtube.com'; break;
+    case 'instagram': url = 'https://www.instagram.com'; break;
+    case 'discord': url = 'https://discord.com'; break;
+    case 'github': url = 'https://github.com'; break;
+    case 'gmail': url = 'https://mail.google.com'; break;
+    default:
+      block.innerText += `\n⚠ 오류: 알 수 없는 미디어입니다.`; return;
+  }
+
+  block.innerText += `\n${timeoutVal}초 후 ${media}로 이동합니다...`;
+
+  setTimeout(() => {
+    window.open(url, '_blank');
+  }, timeoutVal * 1000);
+  
+  return;
+}
+else if (lowerCmd === 'unvulnotepad') {
+  block.innerText += `\n🔀 긴 코드 모드로 이동 중...`;
+  setTimeout(() => {
+    window.location.href = 'notepad.html';
+  }, 1000);
+  return;
+}
+
+
+
+      if ((match = cmd.match(stringPattern))) {
+        text = match[1];
+        parseOptions(match[2]);
+      } else if ((match = cmd.match(numPattern))) {
+        text = match[1];
+        parseOptions(match[2]);
+      } else if ((match = cmd.match(alertStrPattern))) {
+        showAlertBox(match[1]);
+        block.innerText += `\n알림 표시: \"${match[1]}\"`;
+        return;
+      } else if ((match = cmd.match(alertNumPattern))) {
+        showAlertBox(match[1]);
+        block.innerText += `\n숫자 알림 표시: ${match[1]}`;
+        return;
+      } else if (/^title\s+(string|num)/i.test(cmd)) {
+        block.innerText += `\n⚠ 오류: 명령어 형식이 잘못되었습니다.\n정확한 예: title string {"Hello"} 또는 title num {5}`;
+        return;
+      } else {
+        block.innerText += `\n⚠ 오류: 알 수 없는 명령어입니다. (help 입력)`;
+        return;
+      } 
+      
+
+
+      block.innerText += `\n타이틀 표시: ${text}`;
+      showStyledTitle(text, timeout, color, isBold, isItalic);
+
+      function parseOptions(optionStr) {
+        try {
+          const timeoutMatch = optionStr.match(/\[timeout\s*:\s*(\d+)\s*\]/i);
+          const colorMatch = optionStr.match(/\[color\s*:\s*\"(.+?)\"\s*\]/i);
+          const boldMatch = optionStr.match(/\[bold\s*:\s*\"true\"\s*\]/i);
+          const italicMatch = optionStr.match(/\[italic\s*:\s*\"true\"\s*\]/i);
+
+          if (timeoutMatch) timeout = parseInt(timeoutMatch[1]);
+          if (colorMatch) color = colorMatch[1];
+          if (boldMatch) isBold = true;
+          if (italicMatch) isItalic = true;
+        } catch (e) {
+          block.innerText += `\n⚠ 옵션 구문 분석 중 오류 발생. 일부 옵션 무시됨.`;
+        }
+      }
+    }
+
+    function showStyledTitle(text, timeout, color, bold, italic) {
+      const div = document.createElement('div');
+      div.className = 'title-box';
+      div.innerText = text;
+      div.style.fontWeight = bold ? 'bold' : 'normal';
+      div.style.fontStyle = italic ? 'italic' : 'normal';
+      div.style.color = color;
+      document.body.appendChild(div);
+      setTimeout(() => div.remove(), timeout * 1000);
+    }
+
+    function showAlertBox(message) {
+      const alert = document.createElement('div');
+      alert.className = 'alert-box';
+      alert.innerText = message;
+      document.body.appendChild(alert);
+      setTimeout(() => alert.remove(), 3000);
+    }
+
+    recordBtn.addEventListener('click', () => {
+      if (!mediaRecorder) return alert('⚠ 녹화가 설정되지 않았습니다. 먼저 record myself나 otherpage 명령을 실행하세요.');
+      if (mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        recordBtn.textContent = '녹화 시작';
+      } else {
+        recordedChunks = [];
+        mediaRecorder.start();
+        recordBtn.textContent = '녹화 중지';
+      }
+    });
+
+    function injectWaveStyle() {
+  if (document.getElementById('wave-style')) return;
+  const style = document.createElement('style');
+  style.id = 'wave-style';
+  style.innerHTML = `
+    @keyframes waveMove {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0); }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+
+
+</script>
+
+</body>
+</html>
