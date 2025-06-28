@@ -91,6 +91,15 @@
     const input = document.getElementById('input');
     const output = document.getElementById('output');
     const recordBtn = document.getElementById('recordBtn');
+    const executedCommands = []; // 명령어 실행 시마다 여기에 저장
+
+// 실행 명령마다 이 배열에 push 해야 함
+function executeCommand(cmd) {
+  executedCommands.push(cmd);
+    handleCommand(cmd);
+  // 기존 명령어 처리 로직 이어서 실행...
+}
+
 
     let mediaRecorder = null;
     let recordedChunks = [];
@@ -99,23 +108,25 @@
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         const command = input.value.trim();
-        handleCommand(command);
+             executeCommand(command);
+
         input.value = '';
       }
     });
 
     function handleCommand(cmd) {
+      
       const stringPattern = /^title\s+string\s*\{\s*"(.*?)"\s*\}(.*)$/i;
       const numPattern = /^title\s+num\s*\{\s*(\d+)\s*\}(.*)$/i;
       const alertStrPattern = /^alert\s+string\s*\{\s*\"(.*?)\"\s*\}$/i;
       const alertNumPattern = /^alert\s+num\s*\{\s*(\d+)\s*\}$/i;
       const thankyouPattern = /^thankyou\s*\{\s*timeout\s*:\s*(\d+)\s*\}(.*)$/i;
       const foodPattern = /^food\s*\{\s*bite\s*:\s*(\d+)\s*\}$/i;
-
+ 
     
 
 
-       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}\n- showtime\n- food {bite:숫자}\n- getrandom {material:"도구"}\n- unvulnerable\n- gourl {media:"사이트"}\n- unvulnotepad\n- crawl {"검색어"} `;
+       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}\n- showtime\n- food {bite:숫자}\n- getrandom {material:"도구"}\n- unvulnerable\n- gourl {media:"사이트"}\n- unvulnotepad\n- crawl {info:"검색어"}\n- calc {수식}\n- history {mode:"형태"} `;
       let match, text = '', timeout = 3, color = 'skyblue', isBold = false, isItalic = false;
       const lowerCmd = cmd.toLowerCase();
 
@@ -247,8 +258,14 @@
     - language 다른 언어로 검색 결과를 나타냅니다
 
 25. unvulnotepad
-    - UnvulNotepad를 불러옵니다    
+    - UnvulNotepad를 불러옵니다
+    
+26. calc {수식}    
+    - 수식을 계산합니다 (+,-,*,/,//,^ 사용가능)
 
+27. history {mode:"recent/all"} [processing:"True"]
+    - 이전의 코드를 불러옵니다
+    - processing 그 코드를 실행 또한 합니다   
 ---
 
 (Made by 범서) all rights reserved!
@@ -638,7 +655,84 @@ else if (lowerCmd.startsWith('crawl')) {
   block.innerText += `\n ${engine}에서 ${goto ? goto : '일반'} 검색 결과 페이지를 새 창으로 엽니다.`;
   setTimeout(() => window.open(url, '_blank'), 800);
   return;
+
+} else if (lowerCmd.startsWith('calc')) {
+  const exprMatch = cmd.match(/\{(.+?)\}/);
+  if (!exprMatch) {
+    block.innerText += `\n⚠ 오류: calc {수식} 형식이 필요합니다.`;
+    return;
+  }
+
+  let expression = exprMatch[1];
+
+  try {
+    // 변환 작업
+    expression = expression
+      .replace(/\^/g, '**')         // ^ → 거듭제곱
+      .replace(/\/\//g, '/');       // // → 정수 나눗셈 흉내 (JS에는 없음)
+
+    // 정수 나눗셈 흉내
+    const intDiv = (a, b) => Math.floor(a / b);
+
+    // 실제 평가
+    const result = Function(`"use strict"; return (${expression})`)();
+
+    block.innerText += `\n 계산 결과: ${result}`;
+  } catch (e) {
+    block.innerText += `\n⚠ 수식 계산 중 오류 발생: ${e.message}`;
+  }
+  return;
+} else if (lowerCmd.startsWith('history')) {
+  const modeMatch = cmd.match(/\{mode\s*:\s*"(\w+)"\}/i);
+  const processMatch = cmd.match(/\[processing\s*:\s*"true"\]/i); // 원본 cmd로 검사!
+
+  if (!modeMatch) {
+    block.innerText += `\n⚠ 오류: 형식은 history {mode:"recent"} 또는 {mode:"all"} 여야 합니다.`;
+    return;
+  }
+
+  const mode = modeMatch[1].toLowerCase();
+
+  if (executedCommands.length === 0) {
+    block.innerText += `\nℹ 아직 실행된 명령어가 없습니다.`;
+    return;
+  }
+
+  if (mode === 'recent') {
+    if (executedCommands.length < 2) {
+      block.innerText += `\nℹ 실행된 명령어가 2개 이상 필요합니다.`;
+      return;
+    }
+
+    const secondLastCmd = executedCommands[executedCommands.length - 2];
+    block.innerText += `\n 두 번째로 최근 명령어:\n${secondLastCmd}`;
+
+    if (processMatch) {
+      block.innerText += `\n▶ 다시 실행 중...`;
+      executeCommand(secondLastCmd);
+    }
+
+  } else if (mode === 'all') {
+    block.innerText += `\n 지금까지의 명령어 기록:`;
+    executedCommands.forEach((c, i) => {
+      block.innerText += `\n${i + 1}. ${c}`;
+    });
+
+    if (processMatch) {
+      block.innerText += `\n⚠ 무시됨: mode:"all"에서는 processing 작동이 금지됩니다.`;
+    }
+
+  } else {
+    block.innerText += `\n⚠ 오류: 지원되지 않는 mode 값입니다.`;
+  }
+
+  return;
 }
+
+
+
+
+
 
 
 
