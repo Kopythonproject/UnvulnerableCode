@@ -78,6 +78,18 @@
       from { opacity: 0; transform: translateY(-10px); }
       to { opacity: 1; transform: translateY(0); }
     }
+      #desktop-logo {
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    font-size: 28px;
+    color: #ffffffcc;
+    text-shadow: 0 0 5px #00c3ff;
+    font-weight: bold;
+    font-family: 'Consolas', monospace;
+  }
+
+ 
 
     
   </style>
@@ -87,6 +99,7 @@
   <div id="output">명령어를 입력하세요. (help 입력)</div>
   <input id="input" autofocus autocomplete="off" placeholder="> 명령어 입력">
   <button id="recordBtn">녹화 시작</button>
+
   <script>
     const input = document.getElementById('input');
     const output = document.getElementById('output');
@@ -126,7 +139,7 @@ function executeCommand(cmd) {
     
 
 
-       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}\n- showtime\n- food {bite:숫자}\n- getrandom {material:"도구"}\n- unvulnerable\n- gourl {media:"사이트"}\n- unvulnotepad\n- crawl {info:"검색어"}\n- calc {수식}\n- history {mode:"형태"} `;
+       const helpText = `사용 가능한 명령어:\n- help\n- title string {"문자열"}\n- title num {숫자}\n- title clear all\n- title clear recent\n- cls all\n- cls recent\n- alert string {"문자열"}\n- alert num {숫자}\n- record myself\n- record otherpage\n- record showbutton\n- record save\n- record clear\n- thankyou {timeout:초}\n- showtime\n- food {bite:숫자}\n- getrandom {material:"도구"}\n- unvulnerable\n- gourl {media:"사이트"}\n- unvulnotepad\n- crawl {info:"검색어"}\n- calc {수식}\n- history {mode:"형태"}\n- expert {"분야"} `;
       let match, text = '', timeout = 3, color = 'skyblue', isBold = false, isItalic = false;
       const lowerCmd = cmd.toLowerCase();
 
@@ -266,6 +279,11 @@ function executeCommand(cmd) {
 27. history {mode:"recent/all"} [processing:"True"]
     - 이전의 코드를 불러옵니다
     - processing 그 코드를 실행 또한 합니다   
+
+28. expert [info:"korean/math/society/science/english"] [savecustom:"분야:설명"]
+    - 특정 분야의 전문가와 설명을 불러옵니다
+    - savecustom 사용자지정의 전문자와 설명을 불러옵니다
+
 ---
 
 (Made by 범서) all rights reserved!
@@ -729,10 +747,87 @@ else if (lowerCmd.startsWith('crawl')) {
   return;
 }
 
+else if (lowerCmd.startsWith("expert")) {
+  // 사용자 정의 정보 저장 공간 초기화
+  if (!window.customExpertInfos) window.customExpertInfos = {};
 
+  const infoMatch = cmd.match(/\[info\s*:\s*"(.+?)"\s*\]/i);
+  const saveMatch = cmd.match(/\[savecustom\s*:\s*"(.+?)"\s*\]/i);
 
+  // 1. 아무 옵션도 없을 때: 설명 출력
+  if (!infoMatch && !saveMatch) {
+    block.innerText += `
+- available experts
+- math
+- science
+- english
+- korean
+- history
+- society`;
+    return;
+  }
 
+  // 2. 사용자 정의 저장
+  if (saveMatch) {
+    const content = saveMatch[1];
+    const split = content.split(":");
 
+    if (split.length < 2) {
+      block.innerText += `⚠ 형식 오류: [savecustom:"분야:설명"] 형식으로 입력해주세요.`;
+      return;
+    }
+
+    const field = split[0].trim().toLowerCase();
+    const description = split.slice(1).join(":").trim();
+
+    window.customExpertInfos[field] = description;
+    block.innerText += ` '${field}' 분야의 사용자 정의 전문가 정보를 저장했습니다.`;
+    return;
+  }
+
+  // 3. 전문가 정보 요청
+  if (infoMatch) {
+    const field = infoMatch[1].trim().toLowerCase();
+    let response = "";
+
+    const builtInInfo = {
+      math: ` 수학 전문가:
+- 수와 연산, 함수, 기하, 확률과 통계, 미적분을 전문적으로 지도합니다.
+- 문제 해결력과 논리적 사고력 향상을 도와줍니다.`,
+
+      science: ` 과학 전문가:
+- 물리, 화학, 생명과학, 지구과학 분야의 개념을 심화 학습합니다.
+- 실험 분석 및 과학 탐구 활동 지도를 담당합니다.`,
+
+      english: ` 영어 전문가:
+- 듣기, 말하기, 읽기, 쓰기 능력 향상을 지도합니다.
+- 문법, 어휘, 독해 전략 및 영어 시험 대비 지도를 포함합니다.`,
+
+      korean: ` 국어 전문가:
+- 문학 작품 해석, 비문학 독해, 문법, 작문을 다룹니다.
+- 읽기와 쓰기 능력, 언어 감수성을 함께 향상시킵니다.`,
+
+      history: ` 역사 전문가:
+- 한국사 및 세계사의 흐름을 시대별로 분석합니다.
+- 주요 사건, 인물, 사상에 대한 비판적 사고력을 기릅니다.`,
+
+      society: ` 사회 전문가:
+- 정치, 경제, 지리, 윤리 등의 핵심 개념을 다룹니다.
+- 사회 문제에 대한 분석과 탐구 능력 배양을 돕습니다.`
+    };
+
+    if (window.customExpertInfos[field]) {
+      response = `${field} 전문가:\n${window.customExpertInfos[field]}`;
+    } else if (builtInInfo[field]) {
+      response = builtInInfo[field];
+    } else {
+      response = `⚠ '${field}' 분야에 대한 정보가 없습니다. [savecustom]으로 추가할 수 있습니다.`;
+    }
+
+    block.innerText += `\n- ${response}`;
+    return;
+  }
+} 
 
 
 
@@ -827,6 +922,8 @@ else if (lowerCmd.startsWith('crawl')) {
   `;
   document.head.appendChild(style);
 }
+
+
   </script>
 </body>
 </html>
