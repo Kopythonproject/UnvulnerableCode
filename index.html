@@ -573,7 +573,7 @@ else if (lowerCmd.startsWith('unvulnerable')) {
   return;
 }
 else if (lowerCmd.startsWith('gourl')) {
-  const mediaMatch = cmd.match(/\{media\s*:\s*"(youtube|instagram|discord|github|gmail|google|expdf)"\s*\}/i);
+  const mediaMatch = cmd.match(/\{media\s*:\s*"(youtube|instagram|discord|github|gmail|google|ezpdf)"\s*\}/i);
   const timeoutMatch = cmd.match(/\[timeout\s*:\s*(\d+)\s*\]/i);
 
   const timeoutVal = timeoutMatch ? parseInt(timeoutMatch[1]) : 1;
@@ -593,7 +593,7 @@ else if (lowerCmd.startsWith('gourl')) {
     case 'github': url = 'https://github.com'; break;
     case 'gmail': url = 'https://mail.google.com'; break;
     case 'google': url = 'https://google.com'; break;
-    case 'pdfeditor': url = 'http://www.ezpdf.co.kr/'; break;  
+    case 'ezpdf': url = 'http://www.ezpdf.co.kr/'; break;  
 
     default:
       block.innerText += `\n⚠ 오류: 알 수 없는 미디어입니다.`; return;
